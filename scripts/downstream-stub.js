@@ -89,3 +89,12 @@ const server = http.createServer(async (request, response) => {
 server.listen(port, "127.0.0.1", () => {
   process.stdout.write(`Downstream stub listening on ${port}\n`);
 });
+
+function shutdown() {
+  server.close(() => {
+    process.exit(0);
+  });
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

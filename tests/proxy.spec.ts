@@ -1,212 +1,74 @@
-import { APIRequestContext, expect, test } from "@playwright/test";
-
-const stubBaseUrl = "http://127.0.0.1:8085";
-
-async function configureScenario(
-  request: APIRequestContext,
-  payload: {
-    path: string;
-    status?: number;
-    headers?: Record<string, string>;
-    jsonBody?: unknown;
-    rawBody?: string;
-  },
-) {
-  const response = await request.post(`${stubBaseUrl}/__admin/scenarios`, {
-    data: payload,
-  });
-
-  expect(response.ok()).toBeTruthy();
-}
-
-async function fetchRecordedRequests(
-  request: APIRequestContext,
-) {
-  const response = await request.get(`${stubBaseUrl}/__admin/requests`);
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as {
-    requests: Array<{
-      method: string;
-      path: string;
-      jsonBody: Record<string, unknown> | null;
-      rawBody: string;
-    }>;
-  };
-}
-
-test.beforeEach(async ({ request }) => {
-  const response = await request.post(`${stubBaseUrl}/__admin/reset`);
-  expect(response.ok()).toBeTruthy();
-});
+import { proxyRequestCases, proxyResponses, proxyRoutes } from "./data/proxy-data";
+import { expectJsonResponse, expectNoDownstreamCalls } from "./helpers/proxy-assertions";
+import { expect, test } from "./fixtures/proxy-fixtures";
 
 test("forwards the request downstream and strips the user field from the response", async ({
+  downstreamAdmin,
   request,
 }) => {
-  await configureScenario(request, {
-    path: "/api/login",
-    jsonBody: {
-      user: 40,
-      token: "abc123xyz",
-      expires_in: 3600,
-    },
+  await downstreamAdmin.configureJsonScenario(
+    proxyRoutes.login,
+    proxyRequestCases.happyPath.downstreamResponse,
+  );
+
+  const response = await request.post(proxyRoutes.login, {
+    data: proxyRequestCases.happyPath.requestBody,
   });
 
-  const response = await request.post("/api/login", {
-    data: {
-      user: 40,
-      password: "12345",
-    },
-  });
+  await expectJsonResponse(response, 200, proxyResponses.loginSuccess);
 
-  expect(response.status()).toBe(200);
-  expect(await response.json()).toEqual({
-    token: "abc123xyz",
-    expires_in: 3600,
-  });
-
-  const downstreamRequests = await fetchRecordedRequests(request);
-  expect(downstreamRequests.requests).toHaveLength(1);
-  expect(downstreamRequests.requests[0]).toMatchObject({
+  const recordedRequests = await downstreamAdmin.recordedRequests();
+  expect(recordedRequests).toHaveLength(1);
+  expect(recordedRequests[0]).toMatchObject({
     method: "POST",
-    path: "/api/login",
-    jsonBody: {
-      user: 40,
-      password: "12345",
-    },
+    path: proxyRoutes.login,
+    jsonBody: proxyRequestCases.happyPath.requestBody,
   });
 });
 
-test("returns 400 when the request body does not include user", async ({ request }) => {
-  const response = await request.post("/api/login", {
-    data: {
-      password: "12345",
-    },
+for (const invalidRequestCase of proxyRequestCases.invalidRequests) {
+  test(invalidRequestCase.name, async ({ downstreamAdmin, request }) => {
+    const response = await request.post(proxyRoutes.login, invalidRequestCase.requestOptions);
+
+    await expectJsonResponse(response, 400, {
+      detail: invalidRequestCase.expectedDetail,
+    });
+    await expectNoDownstreamCalls(downstreamAdmin);
+  });
+}
+
+for (const invalidDownstreamCase of proxyRequestCases.invalidDownstreamResponses) {
+  test(invalidDownstreamCase.name, async ({ downstreamAdmin, request }) => {
+    await downstreamAdmin.configureScenario(
+      proxyRoutes.login,
+      invalidDownstreamCase.downstreamScenario,
+    );
+
+    const response = await request.post(proxyRoutes.login, {
+      data: proxyRequestCases.happyPath.requestBody,
+    });
+
+    await expectJsonResponse(response, 400, {
+      detail: invalidDownstreamCase.expectedDetail,
+    });
+  });
+}
+
+test("preserves the downstream status code after transforming the body", async ({
+  downstreamAdmin,
+  request,
+}) => {
+  await downstreamAdmin.configureJsonScenario(
+    proxyRoutes.login,
+    proxyRequestCases.createdResponse.downstreamResponse,
+    proxyRequestCases.createdResponse.status,
+  );
+
+  const response = await request.post(proxyRoutes.login, {
+    data: proxyRequestCases.createdResponse.requestBody,
   });
 
-  expect(response.status()).toBe(400);
-  expect(await response.json()).toEqual({
-    detail: "Missing 'user' key in request body",
-  });
-
-  const downstreamRequests = await fetchRecordedRequests(request);
-  expect(downstreamRequests.requests).toHaveLength(0);
-});
-
-test("returns 400 when the request body is not valid json", async ({ request }) => {
-  const response = await request.post("/api/login", {
-    data: Buffer.from('{"user":40'),
-    headers: {
-      "content-type": "application/json",
-    },
-  });
-
-  expect(response.status()).toBe(400);
-  expect(await response.json()).toEqual({
-    detail: "Request body must be valid JSON",
-  });
-});
-
-test("returns 400 when the request body is valid json but not an object", async ({ request }) => {
-  const response = await request.post("/api/login", {
-    data: Buffer.from('"user=40"'),
-    headers: {
-      "content-type": "application/json",
-    },
-  });
-
-  expect(response.status()).toBe(400);
-  expect(await response.json()).toEqual({
-    detail: "Request body must be a JSON object",
-  });
-
-  const downstreamRequests = await fetchRecordedRequests(request);
-  expect(downstreamRequests.requests).toHaveLength(0);
-});
-
-test("returns 400 when the downstream response is missing user", async ({ request }) => {
-  await configureScenario(request, {
-    path: "/api/login",
-    jsonBody: {
-      token: "abc123xyz",
-    },
-  });
-
-  const response = await request.post("/api/login", {
-    data: {
-      user: 40,
-      password: "12345",
-    },
-  });
-
-  expect(response.status()).toBe(400);
-  expect(await response.json()).toEqual({
-    detail: "Missing 'user' key in response body",
-  });
-});
-
-test("returns 400 when the downstream response is not valid json", async ({ request }) => {
-  await configureScenario(request, {
-    path: "/api/login",
-    headers: {
-      "content-type": "text/plain",
-    },
-    rawBody: "not-json",
-  });
-
-  const response = await request.post("/api/login", {
-    data: {
-      user: 40,
-      password: "12345",
-    },
-  });
-
-  expect(response.status()).toBe(400);
-  expect(await response.json()).toEqual({
-    detail: "Downstream response body must be valid JSON",
-  });
-});
-
-test("returns 400 when the downstream response is valid json but not an object", async ({ request }) => {
-  await configureScenario(request, {
-    path: "/api/login",
-    headers: {
-      "content-type": "application/json",
-    },
-    rawBody: '"ok"',
-  });
-
-  const response = await request.post("/api/login", {
-    data: {
-      user: 40,
-      password: "12345",
-    },
-  });
-
-  expect(response.status()).toBe(400);
-  expect(await response.json()).toEqual({
-    detail: "Downstream response body must be a JSON object",
-  });
-});
-
-test("preserves the downstream status code after transforming the body", async ({ request }) => {
-  await configureScenario(request, {
-    path: "/api/login",
-    status: 201,
-    jsonBody: {
-      user: 40,
-      token: "created-token",
-    },
-  });
-
-  const response = await request.post("/api/login", {
-    data: {
-      user: 40,
-      password: "12345",
-    },
-  });
-
-  expect(response.status()).toBe(201);
-  expect(await response.json()).toEqual({
+  await expectJsonResponse(response, proxyRequestCases.createdResponse.status, {
     token: "created-token",
   });
 });

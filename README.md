@@ -109,7 +109,8 @@ The Playwright suite validates:
 
 - I used Playwright because the role is frontend-web focused and Playwright gives a good path from API-level coverage today to browser-level scenarios later.
 - The test suite is written as API tests because the exercise is a proxy service, not a browser UI.
-- The downstream dependency is stubbed locally to keep the tests deterministic and to make request forwarding assertions explicit.
+- The downstream dependency is managed through a Playwright fixture and a local stub so the tests stay deterministic and request-forwarding assertions remain explicit.
+- Test data is centralized under `tests/data`, while reusable test behavior lives under `tests/helpers` and `tests/fixtures`.
 
 ## Tips:
 
