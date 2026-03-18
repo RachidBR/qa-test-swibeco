@@ -55,6 +55,62 @@ Response Body:
 
 2. Please also propose how can this service be tested manually.
 
+## Solution Summary
+
+- Automated tests are implemented with Playwright in TypeScript.
+- The tests run the FastAPI proxy together with a controllable downstream stub so the scenarios are exercised end to end.
+- A manual QA checklist is available in [docs/manual-test-plan.md](./docs/manual-test-plan.md).
+- A short submission walkthrough is available in [docs/submission-notes.md](./docs/submission-notes.md).
+
+## Run The Automated Tests
+
+### 1. Install Python dependencies
+
+Using `uv`:
+
+```bash
+uv sync
+```
+
+Or using `pip`:
+
+```bash
+python3 -m venv .venv
+./.venv/bin/pip install -e .
+```
+
+### 2. Install Playwright dependencies
+
+```bash
+npm install
+```
+
+### 3. Execute the test suite
+
+```bash
+npm test
+```
+
+## What Is Covered
+
+The Playwright suite validates:
+
+1. Successful request forwarding to the downstream service.
+2. Rejection when the request body does not contain `user`.
+3. Rejection when the request body is not valid JSON.
+4. Rejection when the request body is valid JSON but not an object.
+5. Rejection when the downstream response does not contain `user`.
+6. Rejection when the downstream response is not valid JSON.
+7. Rejection when the downstream response is valid JSON but not an object.
+8. Response transformation that removes the `user` field.
+9. Preservation of the downstream status code after transformation.
+
+## Notes On Approach
+
+- I used Playwright because the role is frontend-web focused and Playwright gives a good path from API-level coverage today to browser-level scenarios later.
+- The test suite is written as API tests because the exercise is a proxy service, not a browser UI.
+- The downstream dependency is stubbed locally to keep the tests deterministic and to make request forwarding assertions explicit.
+
 ## Tips:
 
 1. What is a proxy: https://en.wikipedia.org/wiki/Proxy_server
