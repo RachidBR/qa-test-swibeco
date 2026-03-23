@@ -11,12 +11,6 @@ export function createDownstreamAdmin(request: APIRequestContext) {
         throw new Error("Unable to reset downstream stub state");
       }
     },
-    async configureJsonScenario(path: string, jsonBody: unknown, status = 200) {
-      await this.configureScenario(path, {
-        status,
-        jsonBody,
-      });
-    },
     async configureScenario(path: string, scenario: Omit<DownstreamScenario, "path">) {
       const response = await request.post(`${downstreamBaseUrl}/__admin/scenarios`, {
         data: {

@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-import { DOWNSTREAM_PORT, PROXY_PORT } from "./tests/helpers/test-config";
+import { DOWNSTREAM_PORT, PROXY_PORT } from "./helpers/test-config";
 
 export default defineConfig({
   testDir: "./tests",
