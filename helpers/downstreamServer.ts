@@ -14,7 +14,7 @@ export type DownstreamStubServer = {
   stop(): Promise<void>;
   reset(): void;
   setLoginResponse(responseConfig: DownstreamResponseConfig): void;
-  getReceivedRequests(): boolean;
+  hasReceivedRequests(): boolean;
 };
 
 function listen(app: ReturnType<typeof express>) {
@@ -83,7 +83,7 @@ export function createDownstreamStubServer(): DownstreamStubServer {
     setLoginResponse(responseConfig: DownstreamResponseConfig) {
       loginResponse = responseConfig;
     },
-    getReceivedRequests() {
+    hasReceivedRequests() {
       return receivedRequests;
     },
   };

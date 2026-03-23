@@ -30,7 +30,7 @@ test.describe("Incoming request rules", () => {
     });
 
     // THEN the downstream server should not receive any request from the proxy
-    expect(downstreamStub.getReceivedRequests()).toBe(false);
+    expect(downstreamStub.hasReceivedRequests()).toBe(false);
   });
 
   test("rejects a request when the body is not a JSON object", async ({
@@ -50,7 +50,7 @@ test.describe("Incoming request rules", () => {
     });
 
     // THEN the downstream server should not receive any request from the proxy
-    expect(downstreamStub.getReceivedRequests()).toBe(false);
+    expect(downstreamStub.hasReceivedRequests()).toBe(false);
   });
 
   test("rejects a request when user is missing from the body", async ({
@@ -70,7 +70,7 @@ test.describe("Incoming request rules", () => {
     });
 
     // THEN the downstream server should not receive any request from the proxy
-    expect(downstreamStub.getReceivedRequests()).toBe(false);
+    expect(downstreamStub.hasReceivedRequests()).toBe(false);
   });
 
   test("forwards a valid request to the downstream service", async ({
@@ -92,7 +92,7 @@ test.describe("Incoming request rules", () => {
     expect(await response.json()).toEqual(proxyResponseBodies.loginResponseWithoutUser);
 
     // THEN the downstream server should receive the request forwarded by the proxy
-    expect(downstreamStub.getReceivedRequests()).toBe(true);
+    expect(downstreamStub.hasReceivedRequests()).toBe(true);
   });
 });
 
