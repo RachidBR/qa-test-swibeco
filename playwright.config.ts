@@ -2,6 +2,10 @@ import { defineConfig } from "@playwright/test";
 
 import { downstreamBaseUrl } from "./helpers/downstreamServer";
 
+export const endpoints = {
+  loginEndpoint: "/api/login",
+};
+
 const PROXY_PORT = 8000;
 const downstreamUrl = new URL(downstreamBaseUrl);
 

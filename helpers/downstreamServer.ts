@@ -1,8 +1,8 @@
 import express, { type Response } from "express";
 import type { Server } from "node:http";
 
-import { endpoints } from "../data/proxy-test-data";
 import type { DownstreamResponseConfig } from "./proxy-types";
+import { endpoints } from "../playwright.config";
 
 const DOWNSTREAM_PORT = 8085;
 export const downstreamBaseUrl = `http://127.0.0.1:${DOWNSTREAM_PORT}`;

@@ -1,6 +1,3 @@
-export const endpoints = {
-  loginEndpoint: "/api/login",
-};
 
 export const loginRequestBodies = {
   loginRequestWithUser: {

@@ -1,12 +1,12 @@
 import {
   downstreamResponseBodies,
   downstreamResponseConfigs,
-  endpoints,
   invalidLoginRequestBodies,
   loginRequestBodies,
   proxyResponseBodies,
 } from "../data/proxy-test-data";
 import { expect, test } from "../fixtures/downstreamFixture";
+import { endpoints } from "../playwright.config";
 
 test.beforeEach(async ({ downstreamStub }) => {
   downstreamStub.reset();
