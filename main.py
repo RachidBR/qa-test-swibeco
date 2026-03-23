@@ -44,7 +44,7 @@ def process_response(response: httpx.Response) -> JSONResponse:
     if "user" not in body:
         raise HTTPException(status_code=400, detail="Missing 'user' key in response body")
 
-    body.pop("user", None)
+    body.pop("customer", None)
     return JSONResponse(content=body, status_code=response.status_code)
 
 
