@@ -1,24 +1,35 @@
 import {
-  createdDownstreamResponse,
-  createdProxyResponse,
-  downstreamResponseWithoutUser,
-  invalidJsonDownstreamResponse,
-  jsonStringDownstreamResponse,
-  jsonStringRequest,
-  loginPath,
-  loginSuccessResponse,
-  malformedJsonRequest,
-  requestWithoutUser,
-  validDownstreamLoginResponse,
-  validLoginRequest,
+  downstreamResponseBodies,
+  downstreamResponseConfigs,
+  invalidLoginRequestBodies,
+  loginRequestBodies,
+  proxyResponseBodies,
+  proxyRoutes,
 } from "../data/proxy-test-data";
-import { expect, test } from "../fixtures/downstream-fixtures";
+import { expect, test } from "@playwright/test";
+import { createDownstreamStubServer } from "../helpers/create-downstream-stub-server";
 
-test.describe("Request body validation", () => {
-  test("Request body must be valid JSON", async ({ downstreamAdmin, request }) => {
+const downstreamStub = createDownstreamStubServer();
+
+test.beforeAll(async () => {
+  await downstreamStub.start();
+});
+
+test.afterAll(async () => {
+  await downstreamStub.stop();
+});
+
+test.beforeEach(() => {
+  downstreamStub.reset();
+});
+
+test.describe("Incoming request rules", () => {
+  test("rejects a request when the body is not valid JSON", async ({ request }) => {
     // GIVEN a malformed JSON request body
     // WHEN the client sends it to the proxy
-    const response = await request.post(loginPath, malformedJsonRequest);
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: invalidLoginRequestBodies.malformedJsonRequestBody,
+    });
 
     // THEN the proxy rejects the request before calling downstream
     expect(response.status()).toBe(400);
@@ -26,14 +37,16 @@ test.describe("Request body validation", () => {
       detail: "Request body must be valid JSON",
     });
 
-    const recordedRequests = await downstreamAdmin.recordedRequests();
-    expect(recordedRequests).toHaveLength(0);
+    const forwardedRequests = downstreamStub.getForwardedRequests();
+    expect(forwardedRequests).toHaveLength(0);
   });
 
-  test("Request body must be a JSON object", async ({ downstreamAdmin, request }) => {
+  test("rejects a request when the body is not a JSON object", async ({ request }) => {
     // GIVEN a valid JSON value that is not an object
     // WHEN the client sends it to the proxy
-    const response = await request.post(loginPath, jsonStringRequest);
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: invalidLoginRequestBodies.jsonStringRequestBody,
+    });
 
     // THEN the proxy rejects the request before calling downstream
     expect(response.status()).toBe(400);
@@ -41,15 +54,15 @@ test.describe("Request body validation", () => {
       detail: "Request body must be a JSON object",
     });
 
-    const recordedRequests = await downstreamAdmin.recordedRequests();
-    expect(recordedRequests).toHaveLength(0);
+    const forwardedRequests = downstreamStub.getForwardedRequests();
+    expect(forwardedRequests).toHaveLength(0);
   });
 
-  test("Missing 'user' key in request body", async ({ downstreamAdmin, request }) => {
+  test("rejects a request when user is missing from the body", async ({ request }) => {
     // GIVEN a JSON object without the required user field
     // WHEN the client sends it to the proxy
-    const response = await request.post(loginPath, {
-      data: requestWithoutUser,
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: loginRequestBodies.loginRequestWithoutUser,
     });
 
     // THEN the proxy rejects the request before calling downstream
@@ -58,50 +71,44 @@ test.describe("Request body validation", () => {
       detail: "Missing 'user' key in request body",
     });
 
-    const recordedRequests = await downstreamAdmin.recordedRequests();
-    expect(recordedRequests).toHaveLength(0);
+    const forwardedRequests = downstreamStub.getForwardedRequests();
+    expect(forwardedRequests).toHaveLength(0);
   });
 
-  test("Valid request is forwarded to the downstream service", async ({
-    downstreamAdmin,
-    request,
-  }) => {
+  test("forwards a valid request to the downstream service", async ({ request }) => {
     // GIVEN a valid downstream response
-    await downstreamAdmin.configureScenario(loginPath, {
-      jsonBody: validDownstreamLoginResponse,
+    downstreamStub.setLoginResponse({
+      body: downstreamResponseBodies.loginResponseWithUser,
     });
 
     // WHEN the client sends a valid request to the proxy
-    const response = await request.post(loginPath, {
-      data: validLoginRequest,
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: loginRequestBodies.loginRequestWithUser,
     });
 
     // THEN the proxy returns a successful response
     expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual(loginSuccessResponse);
+    expect(await response.json()).toEqual(proxyResponseBodies.loginResponseWithoutUser);
 
     // THEN the original request is forwarded downstream
-    const recordedRequests = await downstreamAdmin.recordedRequests();
-    expect(recordedRequests).toHaveLength(1);
-    expect(recordedRequests[0]).toMatchObject({
+    const forwardedRequests = downstreamStub.getForwardedRequests();
+    expect(forwardedRequests).toHaveLength(1);
+    expect(forwardedRequests[0]).toMatchObject({
       method: "POST",
-      path: loginPath,
-      jsonBody: validLoginRequest,
+      path: proxyRoutes.userLogin,
+      body: loginRequestBodies.loginRequestWithUser,
     });
   });
 });
 
-test.describe("Downstream response validation", () => {
-  test("Downstream response body must be valid JSON", async ({
-    downstreamAdmin,
-    request,
-  }) => {
+test.describe("Downstream response rules", () => {
+  test("rejects the downstream response when it is not valid JSON", async ({ request }) => {
     // GIVEN a downstream response that is not valid JSON
-    await downstreamAdmin.configureScenario(loginPath, invalidJsonDownstreamResponse);
+    downstreamStub.setLoginResponse(downstreamResponseConfigs.invalidJsonResponse);
 
     // WHEN the proxy forwards a valid request to downstream
-    const response = await request.post(loginPath, {
-      data: validLoginRequest,
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: loginRequestBodies.loginRequestWithUser,
     });
 
     // THEN the proxy rejects the invalid downstream response
@@ -111,16 +118,15 @@ test.describe("Downstream response validation", () => {
     });
   });
 
-  test("Downstream response body must be a JSON object", async ({
-    downstreamAdmin,
+  test("rejects the downstream response when it is not a JSON object", async ({
     request,
   }) => {
     // GIVEN a downstream response that is valid JSON but not an object
-    await downstreamAdmin.configureScenario(loginPath, jsonStringDownstreamResponse);
+    downstreamStub.setLoginResponse(downstreamResponseConfigs.jsonStringResponse);
 
     // WHEN the proxy forwards a valid request to downstream
-    const response = await request.post(loginPath, {
-      data: validLoginRequest,
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: loginRequestBodies.loginRequestWithUser,
     });
 
     // THEN the proxy rejects the invalid downstream response shape
@@ -130,15 +136,15 @@ test.describe("Downstream response validation", () => {
     });
   });
 
-  test("Missing 'user' key in response body", async ({ downstreamAdmin, request }) => {
+  test("rejects the downstream response when user is missing", async ({ request }) => {
     // GIVEN a downstream JSON object without the required user field
-    await downstreamAdmin.configureScenario(loginPath, {
-      jsonBody: downstreamResponseWithoutUser,
+    downstreamStub.setLoginResponse({
+      body: downstreamResponseBodies.loginResponseWithoutUser,
     });
 
     // WHEN the proxy forwards a valid request to downstream
-    const response = await request.post(loginPath, {
-      data: validLoginRequest,
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: loginRequestBodies.loginRequestWithUser,
     });
 
     // THEN the proxy rejects the downstream response
@@ -148,39 +154,34 @@ test.describe("Downstream response validation", () => {
     });
   });
 
-  test("Valid downstream response removes 'user' before returning to the client", async ({
-    downstreamAdmin,
-    request,
-  }) => {
+  test("returns the downstream payload without the user field", async ({ request }) => {
     // GIVEN a valid downstream response containing user and business data
-    await downstreamAdmin.configureScenario(loginPath, {
-      jsonBody: validDownstreamLoginResponse,
+    downstreamStub.setLoginResponse({
+      body: downstreamResponseBodies.loginResponseWithUser,
     });
 
     // WHEN the proxy forwards a valid request to downstream
-    const response = await request.post(loginPath, {
-      data: validLoginRequest,
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: loginRequestBodies.loginRequestWithUser,
     });
+
 
     // THEN the proxy removes user and returns the remaining fields
     expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual(loginSuccessResponse);
+    expect(await response.json()).toEqual(proxyResponseBodies.loginResponseWithoutUser);
   });
 
-  test("Valid downstream response keeps the downstream status code", async ({
-    downstreamAdmin,
-    request,
-  }) => {
+  test("keeps the downstream status code on a valid response", async ({ request }) => {
     // GIVEN a valid downstream response with a custom success status
-    await downstreamAdmin.configureScenario(loginPath, createdDownstreamResponse);
+    downstreamStub.setLoginResponse(downstreamResponseConfigs.createdResponse);
 
     // WHEN the proxy forwards a valid request to downstream
-    const response = await request.post(loginPath, {
-      data: validLoginRequest,
+    const response = await request.post(proxyRoutes.userLogin, {
+      data: loginRequestBodies.loginRequestWithUser,
     });
 
     // THEN the proxy keeps the downstream status while still removing user
     expect(response.status()).toBe(201);
-    expect(await response.json()).toEqual(createdProxyResponse);
+    expect(await response.json()).toEqual(proxyResponseBodies.createdLoginResponseWithoutUser);
   });
 });

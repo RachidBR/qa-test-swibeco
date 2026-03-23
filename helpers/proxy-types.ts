@@ -1,22 +1,11 @@
-export type RequestHeaders = Record<string, string>;
-
-export type APIRequestOptions = {
-  data?: Buffer | Record<string, unknown>;
-  headers?: RequestHeaders;
-};
-
-export type DownstreamScenario = {
-  path: string;
+export type DownstreamResponseConfig = {
   status?: number;
-  headers?: RequestHeaders;
-  jsonBody?: unknown;
-  rawBody?: string;
+  body?: unknown;
 };
 
-export type RecordedRequest = {
+export type ForwardedRequest = {
   method: string;
   path: string;
   headers: Record<string, string | string[] | undefined>;
-  rawBody: string;
-  jsonBody: Record<string, unknown> | null;
+  body: Record<string, unknown> | null;
 };

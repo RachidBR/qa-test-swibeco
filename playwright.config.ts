@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-import { DOWNSTREAM_PORT, PROXY_PORT } from "./helpers/test-config";
+import { PROXY_PORT } from "./helpers/test-config";
 
 export default defineConfig({
   testDir: "./tests",
@@ -19,7 +19,7 @@ export default defineConfig({
       PROXY_SERVICE_HOST: "127.0.0.1",
       PROXY_SERVICE_PORT: String(PROXY_PORT),
       PROXY_TARGET_HOST: "127.0.0.1",
-      PROXY_TARGET_PORT: String(DOWNSTREAM_PORT),
+      PROXY_TARGET_PORT: "8085",
       PYTHONUNBUFFERED: "1",
     },
   },
