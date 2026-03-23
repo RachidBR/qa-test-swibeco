@@ -1,13 +1,25 @@
-import express, { type Request, type Response } from "express";
+import express, { type Response } from "express";
 import type { Server } from "node:http";
 
-import { DOWNSTREAM_PORT } from "./test-config";
-import type { DownstreamResponseConfig, ForwardedRequest } from "./proxy-types";
-import { proxyRoutes } from "../data/proxy-test-data";
+import { endpoints } from "../data/proxy-test-data";
+import type { DownstreamResponseConfig } from "./proxy-types";
+
+const DOWNSTREAM_PORT = 8085;
+export const downstreamBaseUrl = `http://127.0.0.1:${DOWNSTREAM_PORT}`;
+
+const downstreamUrl = new URL(downstreamBaseUrl);
+
+export type DownstreamStubServer = {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  reset(): void;
+  setLoginResponse(responseConfig: DownstreamResponseConfig): void;
+  getReceivedRequests(): boolean;
+};
 
 function listen(app: ReturnType<typeof express>) {
   return new Promise<Server>((resolve) => {
-    const stubServer = app.listen(DOWNSTREAM_PORT, "127.0.0.1", () => {
+    const stubServer = app.listen(Number(downstreamUrl.port), downstreamUrl.hostname, () => {
       resolve(stubServer);
     });
   });
@@ -25,21 +37,16 @@ function close(server: Server) {
   });
 }
 
-export function createDownstreamStubServer() {
+export function createDownstreamStubServer(): DownstreamStubServer {
   const app = express();
-  const forwardedRequests: ForwardedRequest[] = [];
+  let receivedRequests = false;
   let loginResponse: DownstreamResponseConfig | null = null;
   let server: Server | undefined;
 
   app.use(express.json());
 
-  app.post(proxyRoutes.userLogin, (request: Request, response: Response) => {
-    forwardedRequests.push({
-      method: request.method,
-      path: request.path,
-      headers: request.headers,
-      body: request.body ?? null,
-    });
+  app.post(endpoints.loginEndpoint, (_request, response: Response) => {
+    receivedRequests = true;
 
     if (!loginResponse) {
       response.status(404).json({ error: "No login response configured" });
@@ -70,14 +77,14 @@ export function createDownstreamStubServer() {
       await close(activeServer);
     },
     reset() {
-      forwardedRequests.length = 0;
+      receivedRequests = false;
       loginResponse = null;
     },
     setLoginResponse(responseConfig: DownstreamResponseConfig) {
       loginResponse = responseConfig;
     },
-    getForwardedRequests() {
-      return forwardedRequests;
+    getReceivedRequests() {
+      return receivedRequests;
     },
   };
 }

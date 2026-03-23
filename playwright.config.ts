@@ -1,6 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
-import { PROXY_PORT } from "./helpers/test-config";
+import { downstreamBaseUrl } from "./helpers/downstreamServer";
+
+const PROXY_PORT = 8000;
+const downstreamUrl = new URL(downstreamBaseUrl);
 
 export default defineConfig({
   testDir: "./tests",
@@ -18,8 +21,8 @@ export default defineConfig({
     env: {
       PROXY_SERVICE_HOST: "127.0.0.1",
       PROXY_SERVICE_PORT: String(PROXY_PORT),
-      PROXY_TARGET_HOST: "127.0.0.1",
-      PROXY_TARGET_PORT: "8085",
+      PROXY_TARGET_HOST: downstreamUrl.hostname,
+      PROXY_TARGET_PORT: downstreamUrl.port,
       PYTHONUNBUFFERED: "1",
     },
   },

@@ -1,5 +1,5 @@
-export const proxyRoutes = {
-  userLogin: "/api/login",
+export const endpoints = {
+  loginEndpoint: "/api/login",
 };
 
 export const loginRequestBodies = {
