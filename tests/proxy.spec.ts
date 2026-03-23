@@ -8,6 +8,10 @@ import {
 } from "../data/proxy-test-data";
 import { expect, test } from "../fixtures/downstreamFixture";
 
+test.beforeEach(async ({ downstreamStub }) => {
+  downstreamStub.reset();
+});
+
 test.describe("Incoming request rules", () => {
   test("rejects a request when the body is not valid JSON", async ({
     downstreamStub,

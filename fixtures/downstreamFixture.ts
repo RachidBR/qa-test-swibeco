@@ -9,23 +9,13 @@ type Fixtures = {
   downstreamStub: DownstreamStubServer;
 };
 
-type WorkerFixtures = {
-  workerDownstreamStub: DownstreamStubServer;
-};
-
-export const test = base.extend<Fixtures, WorkerFixtures>({
-  workerDownstreamStub: [
-    async ({}, use) => {
-      const downstreamStub = createDownstreamStubServer();
-      await downstreamStub.start();
-      await use(downstreamStub);
-      await downstreamStub.stop();
-    },
-    { scope: "worker" },
-  ],
-  downstreamStub: async ({ workerDownstreamStub }, use) => {
-    workerDownstreamStub.reset();
-    await use(workerDownstreamStub);
+export const test = base.extend<Fixtures>({
+  downstreamStub: async ({}, use) => {
+    const downstreamStub = createDownstreamStubServer();
+    await downstreamStub.start();
+    downstreamStub.reset();
+    await use(downstreamStub);
+    await downstreamStub.stop();
   },
 });
 
