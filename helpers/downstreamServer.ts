@@ -39,14 +39,14 @@ function close(server: Server) {
 
 export function createDownstreamStubServer(): DownstreamStubServer {
   const app = express();
-  let receivedRequests = false;
+  let areRequestsReceived = false;
   let loginResponse: DownstreamResponseConfig | null = null;
   let server: Server | undefined;
 
   app.use(express.json());
 
   app.post(endpoints.loginEndpoint, (_request, response: Response) => {
-    receivedRequests = true;
+    areRequestsReceived = true;
 
     if (!loginResponse) {
       response.status(404).json({ error: "No login response configured" });
@@ -77,14 +77,14 @@ export function createDownstreamStubServer(): DownstreamStubServer {
       await close(activeServer);
     },
     reset() {
-      receivedRequests = false;
+      areRequestsReceived = false;
       loginResponse = null;
     },
     setLoginResponse(responseConfig: DownstreamResponseConfig) {
       loginResponse = responseConfig;
     },
     hasReceivedRequests() {
-      return receivedRequests;
+      return areRequestsReceived;
     },
   };
 }
