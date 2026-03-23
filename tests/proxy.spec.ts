@@ -1,16 +1,12 @@
 import {
-  downstreamResponseBodies,
-  downstreamResponseConfigs,
-  invalidLoginRequestBodies,
-  loginRequestBodies,
-  proxyResponseBodies,
+  downstreamResponses,
+  proxyResponses,
+  requests,
 } from "../data/proxy-test-data";
 import { expect, test } from "../fixtures/downstreamFixture";
 import { endpoints } from "../playwright.config";
 
-test.beforeEach(async ({ downstreamStub }) => {
-  downstreamStub.reset();
-});
+
 
 test.describe("Incoming request rules", () => {
   test("rejects a request when the body is not valid JSON", async ({
@@ -20,7 +16,7 @@ test.describe("Incoming request rules", () => {
     // GIVEN a malformed JSON request body
     // WHEN the client sends it to the proxy
     const response = await request.post(endpoints.loginEndpoint, {
-      data: invalidLoginRequestBodies.malformedJsonRequestBody,
+      data: requests.invalidLoginRequestBodies.malformedJsonBody,
     });
 
     // THEN the proxy rejects the request before calling downstream
@@ -40,7 +36,7 @@ test.describe("Incoming request rules", () => {
     // GIVEN a valid JSON value that is not an object
     // WHEN the client sends it to the proxy
     const response = await request.post(endpoints.loginEndpoint, {
-      data: invalidLoginRequestBodies.jsonStringRequestBody,
+      data: requests.invalidLoginRequestBodies.jsonStringBody,
     });
 
     // THEN the proxy rejects the request before calling downstream
@@ -60,7 +56,7 @@ test.describe("Incoming request rules", () => {
     // GIVEN a JSON object without the required user field
     // WHEN the client sends it to the proxy
     const response = await request.post(endpoints.loginEndpoint, {
-      data: loginRequestBodies.loginRequestWithoutUser,
+      data: requests.invalidLoginRequestBodies.loginWithoutUser,
     });
 
     // THEN the proxy rejects the request before calling downstream
@@ -79,17 +75,19 @@ test.describe("Incoming request rules", () => {
   }) => {
     // GIVEN a valid downstream response
     downstreamStub.setLoginResponse({
-      body: downstreamResponseBodies.loginResponseWithUser,
+      body: downstreamResponses.valid.responseBodies.loginWithUser,
     });
 
     // WHEN the client sends a valid request to the proxy
     const response = await request.post(endpoints.loginEndpoint, {
-      data: loginRequestBodies.loginRequestWithUser,
+      data: requests.validRequestBodies.loginWithUser,
     });
 
     // THEN the proxy returns a successful response
     expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual(proxyResponseBodies.loginResponseWithoutUser);
+    expect(await response.json()).toEqual(
+      proxyResponses.responseBodies.loginWithoutUser,
+    );
 
     // THEN the downstream server should receive the request forwarded by the proxy
     expect(downstreamStub.hasReceivedRequests()).toBe(true);
@@ -102,11 +100,13 @@ test.describe("Downstream response rules", () => {
     request,
   }) => {
     // GIVEN a downstream response that is not valid JSON
-    downstreamStub.setLoginResponse(downstreamResponseConfigs.invalidJsonResponse);
+    downstreamStub.setLoginResponse(
+      downstreamResponses.invalid.responseConfigs.invalidJson,
+    );
 
     // WHEN the proxy forwards a valid request to downstream
     const response = await request.post(endpoints.loginEndpoint, {
-      data: loginRequestBodies.loginRequestWithUser,
+      data: requests.validRequestBodies.loginWithUser,
     });
 
     // THEN the proxy rejects the invalid downstream response
@@ -121,11 +121,13 @@ test.describe("Downstream response rules", () => {
     request,
   }) => {
     // GIVEN a downstream response that is valid JSON but not an object
-    downstreamStub.setLoginResponse(downstreamResponseConfigs.jsonStringResponse);
+    downstreamStub.setLoginResponse(
+      downstreamResponses.invalid.responseConfigs.jsonString,
+    );
 
     // WHEN the proxy forwards a valid request to downstream
     const response = await request.post(endpoints.loginEndpoint, {
-      data: loginRequestBodies.loginRequestWithUser,
+      data: requests.validRequestBodies.loginWithUser,
     });
 
     // THEN the proxy rejects the invalid downstream response shape
@@ -141,12 +143,12 @@ test.describe("Downstream response rules", () => {
   }) => {
     // GIVEN a downstream JSON object without the required user field
     downstreamStub.setLoginResponse({
-      body: downstreamResponseBodies.loginResponseWithoutUser,
+      body: downstreamResponses.invalid.responseBodies.loginWithoutUser,
     });
 
     // WHEN the proxy forwards a valid request to downstream
     const response = await request.post(endpoints.loginEndpoint, {
-      data: loginRequestBodies.loginRequestWithUser,
+      data: requests.validRequestBodies.loginWithUser,
     });
 
     // THEN the proxy rejects the downstream response
@@ -162,17 +164,19 @@ test.describe("Downstream response rules", () => {
   }) => {
     // GIVEN a valid downstream response containing user and business data
     downstreamStub.setLoginResponse({
-      body: downstreamResponseBodies.loginResponseWithUser,
+      body: downstreamResponses.valid.responseBodies.loginWithUser,
     });
 
     // WHEN the proxy forwards a valid request to downstream
     const response = await request.post(endpoints.loginEndpoint, {
-      data: loginRequestBodies.loginRequestWithUser,
+      data: requests.validRequestBodies.loginWithUser,
     });
 
     // THEN the proxy removes user and returns the remaining fields
     expect(response.status()).toBe(200);
-    expect(await response.json()).toEqual(proxyResponseBodies.loginResponseWithoutUser);
+    expect(await response.json()).toEqual(
+      proxyResponses.responseBodies.loginWithoutUser,
+    );
   });
 
   test("keeps the downstream status code on a valid response", async ({
@@ -180,15 +184,19 @@ test.describe("Downstream response rules", () => {
     request,
   }) => {
     // GIVEN a valid downstream response with a custom success status
-    downstreamStub.setLoginResponse(downstreamResponseConfigs.createdResponse);
+    downstreamStub.setLoginResponse(
+      downstreamResponses.valid.responseConfigs.created,
+    );
 
     // WHEN the proxy forwards a valid request to downstream
     const response = await request.post(endpoints.loginEndpoint, {
-      data: loginRequestBodies.loginRequestWithUser,
+      data: requests.validRequestBodies.loginWithUser,
     });
 
     // THEN the proxy keeps the downstream status while still removing user
     expect(response.status()).toBe(201);
-    expect(await response.json()).toEqual(proxyResponseBodies.createdLoginResponseWithoutUser);
+    expect(await response.json()).toEqual(
+      proxyResponses.responseBodies.createdLoginWithoutUser,
+    );
   });
 });
